@@ -2,6 +2,8 @@ package example
 
 import example.ArbitrageDetector.{Currency, CurrencyPricePair, Edge}
 
+import scala.annotation.tailrec
+
 trait ArbitrageDetector {
   def detectArbitrage(currencyPricePairs: List[CurrencyPricePair])
 }
@@ -18,46 +20,88 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
   override def detectArbitrage(currencyPricePairs: List[CurrencyPricePair]): Unit = {
     val graph = currencyPricePairs.foldLeft(Map[Currency, List[Edge]]()) { (acc, pair) =>
       acc.updatedWith(pair.from) {
-        case Some(f) => Some(f :+ Edge(pair.from, pair.to, pair.rate))
+        case Some(f) => Some(f :+ Edge(pair.from, pair.to, pair.rate)) // todo: log?
         case None => Some(List(Edge(pair.from, pair.to, pair.rate)))
       }
     }
     val edges = graph.values.flatten
 
+    // Using each currency as a potential source
     graph.keys.map { source =>
       val distance = graph.keys.map { k => (k, if (k == source) 0 else Double.PositiveInfinity) }.toMap
       val predecessor: Map[Currency, Option[Currency]] = graph.keys.map { k => (k, None) }.toMap
 
 
+      @tailrec
       def relaxEdges(iteration: Int, distance: Map[Currency, Double], predecessor: Map[Currency, Option[Currency]]): (Map[Currency, Double], Map[Currency, Option[Currency]]) = {
         // repeat |V| - 1 times, where |V| is the number of vertices
         if (iteration < graph.size) {
-          val iterationResult = edges.foldLeft((distance, predecessor)) { (acc, edge) =>
-            val currentDistance = acc._1
-            val currentPredecessor = acc._2
+          val relaxResult = edges.foldLeft((distance, predecessor)) { (acc, edge) =>
+            val distance = acc._1
+            val predecessor = acc._2
 
             (for {
-              fromDistance <- currentDistance.get(edge.from)
-              toDistance <- currentDistance.get(edge.to)
+              fromDistance <- distance.get(edge.from)
+              toDistance <- distance.get(edge.to)
               shouldRelax = (fromDistance + edge.weight) < toDistance
 
               result <- if (shouldRelax) {
-                Some(currentDistance.updated(edge.to, fromDistance + edge.weight),
-                  currentPredecessor.updated(edge.to, Some(edge.from)))
+                Some(distance.updated(edge.to, fromDistance + edge.weight),
+                  predecessor.updated(edge.to, Some(edge.from)))
               } else None
-            } yield result).getOrElse(currentDistance, currentPredecessor)
+            } yield result).getOrElse(distance, predecessor)
           }
 
-          val updatedDistance = iterationResult._1
-          val updatedPredecessor = iterationResult._2
+          val updatedDistance = relaxResult._1
+          val updatedPredecessor = relaxResult._2
           relaxEdges(iteration + 1, updatedDistance, updatedPredecessor)
         } else {
           (distance, predecessor)
         }
       }
 
+      val relaxEdgesResult = relaxEdges(1, distance, predecessor)
 
-      0
+      val relaxedDistance = relaxEdgesResult._1
+      val relaxedPredecessor = relaxEdgesResult._2
+
+      final case class CycleResult(cycle: List[List[Currency]], seen: Set[Currency])
+
+      def findNonNegativeWeightCycles(distance: Map[Currency, Double], predecessor: Map[Currency, Option[Currency]]): List[List[Currency]] = {
+        edges.foldLeft[(List[List[Currency]], Set[String])]((List(), Set())) { (acc, edge) =>
+          if (acc._2.contains(edge.to)) {
+            acc
+          } else {
+
+            @tailrec
+            def findCycle(current: Currency, to: Currency, seen: Set[Currency], cycles: List[Currency] = List()): (List[Currency], Set[Currency]) = {
+              if (current == to || cycles.contains(current)) {
+                val pivot = cycles.indexOf(current)
+                val inOrderCycles = cycles.drop(pivot).reverse
+                (inOrderCycles, seen)
+              } else {
+                val next = predecessor.get(current).flatten.getOrElse(throw new Exception(s"Predecessor should exist for $current"))
+                findCycle(next, to, seen + current, cycles :+ current)
+              }
+            }
+
+            (for {
+              fromDistance <- distance.get(edge.from)
+              toDistance <- distance.get(edge.to)
+              canRelax = (fromDistance + edge.weight) < toDistance
+              cyclesResult = if (canRelax) {
+                findCycle(edge.from, edge.to, acc._2)
+              } else {
+                (List(), acc._2)
+              }
+              updatedCycles = cyclesResult._1 +: acc._1
+              updatedSeen = cyclesResult._2
+            } yield (updatedCycles, updatedSeen)).getOrElse(acc)
+          }
+        }
+      }._1
+
+      findNonNegativeWeightCycles(relaxedDistance, relaxedPredecessor)
     }
 
 

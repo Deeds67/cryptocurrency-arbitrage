@@ -1,7 +1,7 @@
 package example
 
 import example.ArbitrageDetector
-import example.ArbitrageDetector.CurrencyPricePair
+import example.ArbitrageDetector.{CurrencyPricePair, Graph}
 
 //{
 //"BTC-BTC": "1.0000000000",
@@ -24,7 +24,7 @@ import example.ArbitrageDetector.CurrencyPricePair
 
 object Hello extends App {
   val at = new ArbitrageDetectorImpl()
-  val result = at.detectArbitrage(
+  val result = at.detectArbitrage(Graph(
     List(
       CurrencyPricePair("BTC", "BTC", 1.0),
       CurrencyPricePair("BTC", "CHSB", 116352.2654440156),
@@ -42,7 +42,7 @@ object Hello extends App {
       CurrencyPricePair("EUR", "CHSB", 5.0427577751),
       CurrencyPricePair("EUR", "DAI", 1.0211378960),
       CurrencyPricePair("EUR", "EUR", 1.0),
-    ))
+    )))
   println(result)
 }
 

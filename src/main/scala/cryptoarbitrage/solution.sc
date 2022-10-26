@@ -1,7 +1,4 @@
-package example
-
-import example.ArbitrageDetector.{BellmanFordOutput, Currency, Graph}
-
+import ArbitrageDetector.{BellmanFordOutput, Currency, Graph}
 
 trait ArbitrageDetector {
   def detectArbitrage(graph: Graph): Set[List[Currency]]

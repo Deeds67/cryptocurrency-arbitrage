@@ -58,16 +58,16 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
     println(s"graph $graph")
     println(s"edges $allEdges")
 
-//    graph.keys.foldLeft[Set[List[Currency]]](Set()) { (acc, currency) =>
-//      println(currency)
-//      val negativeWeightCycles = bellmanFordAlgorithm(currency, g)
-//      println(s"negativeWeightCycles: $negativeWeightCycles")
-//      negativeWeightCycles
-//    }
-    println("BTC")
-    val negativeWeightCycles = bellmanFordAlgorithm("BTC", g)
-    println(s"negativeWeightCycles: $negativeWeightCycles")
-    negativeWeightCycles
+      graph.keys.foldLeft[Set[List[Currency]]](Set()) { (acc, currency) =>
+        println(currency)
+        val negativeWeightCycles = bellmanFordAlgorithm(currency, g)
+        println(s"negativeWeightCycles: $negativeWeightCycles")
+        negativeWeightCycles
+      }
+//    println("BTC")
+//    val negativeWeightCycles = bellmanFordAlgorithm("BTC", g)
+//    println(s"negativeWeightCycles: $negativeWeightCycles")
+//    negativeWeightCycles
   }
 
   def bellmanFordAlgorithm(sourceCurrency: Currency, g: Graph): Set[List[Currency]] = {
@@ -90,41 +90,36 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
     }
 
     println(s"Relaxing output: $outputAfterRelaxing")
-    findNegativeWeightCycles(g, outputAfterRelaxing)
+    findNegativeWeightCycles(g, outputAfterRelaxing, sourceCurrency)
   }
 
-  def findNegativeWeightCycles(g: Graph, output: BellmanFordOutput): Set[List[Currency]] = {
-    val edges = g.graph.values.flatten
-    val seen = scala.collection.mutable.Set[Currency]()
-    val allCycles = scala.collection.mutable.Set[List[Currency]]()
 
-    edges.foreach{ e =>
-      var current = e.to
+  def findNegativeWeightCycles(g: Graph, output: BellmanFordOutput, source: Currency): Set[List[Currency]] = {
+    val edges = g.graph.values.flatten
+    edges.flatMap { e =>
       // If it's possible to relax further, it means that there must be a negative weight cycle,
       // because it takes at maximum |V| - 1 relaxations to find the optimal value.
-      if (!seen.contains(current) && e.canRelax(output.distance)) {
-        val cycles = scala.collection.mutable.ArrayBuffer[Currency]()
+      if (e.canRelax(output.distance)) {
+        var cycles = scala.collection.mutable.ArrayBuffer[Currency](source)
+        var next = source
         var found = false
-        while(!found) {
-          seen.add(current)
-          cycles.append(current)
-          current = output.predecessor(e.to).getOrElse(throw new Exception("Expected to have a predecessor"))
-          if (current == e.to || cycles.contains(current)) {
-            println(s"current == e.to: ${current == e.to} || cycles.contains(current) ${cycles.contains(current)}")
+        while (!found) {
+          next = output.predecessor(next).getOrElse(throw new Exception("Expected node to have a predecessor"))
+          if (!cycles.contains(next)) {
+            cycles.append(next)
+          } else {
+            cycles.append(next)
+            cycles = cycles.slice(cycles.indexOf(next), cycles.size)
             found = true
           }
         }
-
-        val cycleStart = cycles.indexOf(current)
-        println(s"cycles: $cycles")
-
-        cycles.append(current)
-        println(s"cycles after append: $cycles")
-
-        allCycles.add(cycles.slice(cycleStart, cycles.size).reverse.toList)
-      }
-    }
-
-    allCycles.toSet
+        Some(cycles.toList)
+      } else None
+    }.toSet
   }
+
+  //  def calculateArb(cycles: Set[List[Currency]]): Unit = {
+  //    var total = 0
+  //    for ()
+  //  }
 }

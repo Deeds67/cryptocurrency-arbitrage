@@ -1,3 +1,5 @@
 /.bsp/
 target/
 .idea/
+.bsp/
+.scala-build/

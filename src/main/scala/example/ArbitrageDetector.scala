@@ -1,9 +1,7 @@
 package example
 
-import example.ArbitrageDetector.{BellmanFordOutput, Currency, CurrencyPricePair, Edge, Graph}
+import example.ArbitrageDetector.{BellmanFordOutput, Currency, Graph}
 
-import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 
 trait ArbitrageDetector {
   def detectArbitrage(graph: Graph): Set[List[Currency]]
@@ -11,8 +9,6 @@ trait ArbitrageDetector {
 
 object ArbitrageDetector {
   type Currency = String
-
-  final case class CurrencyPricePair(from: Currency, to: Currency, rate: Double)
 
   final case class Edge(from: Currency, to: Currency, weight: Double) {
     def canRelax(distance: Map[Currency, Double]): Boolean = (distance(from) + weight) < distance(to)
@@ -26,6 +22,8 @@ object ArbitrageDetector {
       })
     }
   }
+
+  final case class CurrencyPricePair(from: Currency, to: Currency, rate: Double)
 
   object Graph {
     def apply(currencyPricePairs: List[CurrencyPricePair]): Graph = {
@@ -53,21 +51,10 @@ object ArbitrageDetector {
 class ArbitrageDetectorImpl() extends ArbitrageDetector {
   override def detectArbitrage(g: Graph): Set[List[Currency]] = {
     val graph = g.graph
-    val allEdges = graph.values.flatten
 
-    println(s"graph $graph")
-    println(s"edges $allEdges")
-
-      graph.keys.foldLeft[Set[List[Currency]]](Set()) { (acc, currency) =>
-        println(currency)
-        val negativeWeightCycles = bellmanFordAlgorithm(currency, g)
-        println(s"negativeWeightCycles: $negativeWeightCycles")
-        negativeWeightCycles
-      }
-//    println("BTC")
-//    val negativeWeightCycles = bellmanFordAlgorithm("BTC", g)
-//    println(s"negativeWeightCycles: $negativeWeightCycles")
-//    negativeWeightCycles
+    graph.keys.foldLeft[Set[List[Currency]]](Set()) { (acc, currency) =>
+      acc ++ bellmanFordAlgorithm(currency, g)
+    }
   }
 
   def bellmanFordAlgorithm(sourceCurrency: Currency, g: Graph): Set[List[Currency]] = {
@@ -89,10 +76,8 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
       }
     }
 
-    println(s"Relaxing output: $outputAfterRelaxing")
     findNegativeWeightCycles(g, outputAfterRelaxing, sourceCurrency)
   }
-
 
   def findNegativeWeightCycles(g: Graph, output: BellmanFordOutput, source: Currency): Set[List[Currency]] = {
     val edges = g.graph.values.flatten
@@ -117,9 +102,4 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
       } else None
     }.toSet
   }
-
-  //  def calculateArb(cycles: Set[List[Currency]]): Unit = {
-  //    var total = 0
-  //    for ()
-  //  }
 }

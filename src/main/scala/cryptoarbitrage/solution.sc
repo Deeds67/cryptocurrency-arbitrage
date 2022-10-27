@@ -78,20 +78,23 @@ class ArbitrageDetectorImpl() extends ArbitrageDetector {
 
   def findNegativeWeightCycles(g: Graph, output: BellmanFordOutput, source: Currency): Set[List[Currency]] = {
     val edges = g.graph.values.flatten
+    val seen = scala.collection.mutable.Set[Currency]()
     edges.flatMap { e =>
       // If it's possible to relax further, it means that there must be a negative weight cycle,
       // because it takes at maximum |V| - 1 relaxations to find the optimal value.
-      if (e.canRelax(output.distance)) {
+      var next = source
+
+      if (!seen.contains(next) && e.canRelax(output.distance)) {
         var cycles = scala.collection.mutable.ArrayBuffer[Currency](source)
-        var next = source
         var found = false
         while (!found) {
           next = output.predecessor(next).getOrElse(throw new Exception("Expected node to have a predecessor"))
+          seen.add(next)
           if (!cycles.contains(next)) {
             cycles.append(next)
           } else {
             cycles.append(next)
-            cycles = cycles.slice(cycles.indexOf(next), cycles.size)
+            cycles = cycles.slice(cycles.indexOf(next), cycles.size).reverse
             found = true
           }
         }

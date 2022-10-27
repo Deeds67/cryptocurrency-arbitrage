@@ -26,6 +26,27 @@ import solution.ArbitrageDetector
   val request = basicRequest.get(encodedUrl).response(asJson[Map[String,String]])
   val responseBody: Map[String, String] = client.send(request).body.right.get
 
+//  val responseBody = read[Map[String,String]]("""{
+//    |    "BTC-BTC": "1.0000000000",
+//    |        "BTC-CHS": "0.00000973",
+//    |        "BTC-DAI": "0.0000475",
+//    |        "BTC-EUR": "0.00004784",
+//    |        "CHS-BTC": "102127.62265611",
+//    |        "CHS-CHS": "1.0000000000",
+//    |        "CHS-DAI": "5.04446637",
+//    |        "CHS-EUR": "4.9593934",
+//    |        "DAI-BTC": "20420.5893644",
+//    |        "DAI-CHS": "0.19695241",
+//    |        "DAI-DAI": "1.0000000000",
+//    |        "DAI-EUR": "1.01544794",
+//    |        "EUR-BTC": "20770.88227025",
+//    |        "EUR-CHS": "0.19562445",
+//    |        "EUR-DAI": "0.97840543",
+//    |        "EUR-EUR": "1.0000000000"
+//    |}""".stripMargin)
+
+//  println(responseBody)
+
   val currencyPricePairs = responseBody.map { (k: String, v: String) =>
     val split = k.split("-")
     val from = split(0)
@@ -35,6 +56,7 @@ import solution.ArbitrageDetector
   }.toList
 
 
+//  println(currencyPricePairs)
   val at = new solution.ArbitrageDetectorImpl()
 //  val currencyPricePairs = List(
 //    solution.ArbitrageDetector.CurrencyPricePair("BTC", "BTC", 1.0),

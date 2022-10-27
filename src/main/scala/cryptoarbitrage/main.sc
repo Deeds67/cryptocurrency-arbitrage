@@ -10,8 +10,6 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
 
 /* Borger, feel free to let your imagination shine but do not change this snippet :> */
 
-import solution.ArbitrageDetector
-
 
 @main def run(args: String*): Unit = {
   val url: String = args.length match {
@@ -19,81 +17,149 @@ import solution.ArbitrageDetector
     case _ => args(0)
   }
 
-
   /* Add your stuff, be Awesome! */
+  object Solution {
+    type Currency = String
+
+    final case class Edge(from: Currency, to: Currency, weight: Double) {
+      def canRelax(distance: Map[Currency, Double]): Boolean = (distance(from) + weight) < distance(to)
+    }
+
+    final case class Graph(graph: Map[Currency, List[Edge]]) {
+      def addEdge(edge: Edge): Graph = {
+        this.copy(graph = this.graph.updatedWith(edge.from) {
+          case Some(f) => Some(f :+ edge)
+          case None => Some(List(edge))
+        })
+      }
+    }
+
+    final case class CurrencyPricePair(from: Currency, to: Currency, rate: Double)
+
+    object Graph {
+      def apply(currencyPricePairs: List[CurrencyPricePair]): Graph = {
+        currencyPricePairs.foldLeft(Graph(Map[Currency, List[Edge]]())) { (acc, pair) =>
+          if (pair.from == pair.to) {
+            acc
+          } else {
+            val edge = Edge(pair.from, pair.to, -scala.math.log(pair.rate))
+            acc.addEdge(edge)
+          }
+        }
+      }
+    }
+
+    final case class BellmanFordOutput(distance: Map[Currency, Double], predecessor: Map[Currency, Option[Currency]]) {
+      def relaxEdge(edge: Edge): BellmanFordOutput = {
+        this.copy(
+          distance = distance.updated(edge.to, distance(edge.from) + edge.weight),
+          predecessor = predecessor.updated(edge.to, Some(edge.from))
+        )
+      }
+    }
+
+    trait ArbitrageDetector {
+      def detectArbitrage(graph: Graph): Set[List[Currency]]
+      def printArbitrageResult(result: Set[List[Currency]], graph: Graph): Unit
+    }
+
+    class ArbitrageDetectorImpl() extends ArbitrageDetector {
+      override def detectArbitrage(g: Graph): Set[List[Currency]] = {
+        val graph = g.graph
+
+        graph.keys.foldLeft[Set[List[Currency]]](Set()) { (acc, currency) =>
+          acc ++ bellmanFordAlgorithm(currency, g)
+        }
+      }
+
+      def bellmanFordAlgorithm(sourceCurrency: Currency, g: Graph): Set[List[Currency]] = {
+        val graph = g.graph
+        val edges = graph.values.flatten
+        val initialOutput = BellmanFordOutput(
+          distance = graph.keys.map { c => (c, if (c == sourceCurrency) 0.0 else Double.PositiveInfinity) }.toMap,
+          predecessor = graph.keys.map { k => (k, None) }.toMap
+        )
+
+        val outputAfterRelaxing = (1 until graph.size).foldLeft(initialOutput) { (acc, _) =>
+          edges.foldLeft(acc) { (edgeAcc, edge) =>
+            val canRelax = edge.canRelax(edgeAcc.distance)
+            if (canRelax) {
+              edgeAcc.relaxEdge(edge)
+            } else {
+              edgeAcc
+            }
+          }
+        }
+
+        findNegativeWeightCycles(g, outputAfterRelaxing, sourceCurrency)
+      }
+
+      def findNegativeWeightCycles(g: Graph, output: BellmanFordOutput, source: Currency): Set[List[Currency]] = {
+        val edges = g.graph.values.flatten
+        val seen = scala.collection.mutable.Set[Currency]()
+        edges.flatMap { e =>
+          // If it's possible to relax further, it means that there must be a negative weight cycle,
+          // because it takes at maximum |V| - 1 relaxations to find the optimal value.
+          var next = source
+
+          if (!seen.contains(next) && e.canRelax(output.distance)) {
+            var cycles = scala.collection.mutable.ArrayBuffer[Currency](source)
+            var found = false
+            while (!found) {
+              next = output.predecessor(next).getOrElse(throw new Exception("Expected node to have a predecessor"))
+              seen.add(next)
+              if (!cycles.contains(next)) {
+                cycles.append(next)
+              } else {
+                cycles.append(next)
+                cycles = cycles.slice(cycles.indexOf(next), cycles.size).reverse
+                found = true
+              }
+            }
+            Some(cycles.toList)
+          } else None
+        }.toSet
+      }
+
+      override def printArbitrageResult(result: Set[List[Currency]], graph: Solution.Graph): Unit = {
+        if (result.isEmpty) {
+          println("No arbitrage could be found.")
+        } else {
+          result.foreach { r =>
+            val initialCurrency = r.head
+            val resultingAmount = r.slice(1, r.size).foldLeft((1.0, initialCurrency)) { (acc, curr) =>
+              val sum = acc._1
+              val prev = acc._2
+              val loggedRate = graph.graph(prev).find(_.to == curr).getOrElse(throw new Exception(s"Could not find exchange between $prev and $curr"))
+              val rate = scala.math.exp(-loggedRate.weight)
+              (sum * rate, curr)
+            }._1
+            println(s"Arbitrage found: $initialCurrency")
+            println(s"Path: ${r.mkString(" -> ")}")
+            println(s"When following this path, 1 $initialCurrency would be turned into $resultingAmount $initialCurrency \n\n")
+          }
+        }
+      }
+    }
+  }
+
   val client = SimpleHttpClient()
   val encodedUrl = uri"${url}"
   val request = basicRequest.get(encodedUrl).response(asJson[Map[String,String]])
   val responseBody: Map[String, String] = client.send(request).body.right.get
-
-//  val responseBody = read[Map[String,String]]("""{
-//    |    "BTC-BTC": "1.0000000000",
-//    |        "BTC-CHS": "0.00000973",
-//    |        "BTC-DAI": "0.0000475",
-//    |        "BTC-EUR": "0.00004784",
-//    |        "CHS-BTC": "102127.62265611",
-//    |        "CHS-CHS": "1.0000000000",
-//    |        "CHS-DAI": "5.04446637",
-//    |        "CHS-EUR": "4.9593934",
-//    |        "DAI-BTC": "20420.5893644",
-//    |        "DAI-CHS": "0.19695241",
-//    |        "DAI-DAI": "1.0000000000",
-//    |        "DAI-EUR": "1.01544794",
-//    |        "EUR-BTC": "20770.88227025",
-//    |        "EUR-CHS": "0.19562445",
-//    |        "EUR-DAI": "0.97840543",
-//    |        "EUR-EUR": "1.0000000000"
-//    |}""".stripMargin)
-
-//  println(responseBody)
 
   val currencyPricePairs = responseBody.map { (k: String, v: String) =>
     val split = k.split("-")
     val from = split(0)
     val to = split(1)
     val rate = v.toDouble
-    solution.ArbitrageDetector.CurrencyPricePair(from, to, rate)
+    Solution.CurrencyPricePair(from, to, rate)
   }.toList
 
+  val arbitrageDetector = new Solution.ArbitrageDetectorImpl()
 
-//  println(currencyPricePairs)
-  val at = new solution.ArbitrageDetectorImpl()
-//  val currencyPricePairs = List(
-//    solution.ArbitrageDetector.CurrencyPricePair("BTC", "BTC", 1.0),
-//    solution.ArbitrageDetector.CurrencyPricePair("BTC", "CHSB", 116352.2654440156),
-//    solution.ArbitrageDetector.CurrencyPricePair("BTC", "DAI", 23524.1391553039),
-//    solution.ArbitrageDetector.CurrencyPricePair("BTC", "EUR", 23258.8865583847),
-//    solution.ArbitrageDetector.CurrencyPricePair("CHSB", "BTC", 0.0000086866),
-//    solution.ArbitrageDetector.CurrencyPricePair("CHSB", "CHSB", 1.0),
-//    solution.ArbitrageDetector.CurrencyPricePair("CHSB", "DAI", 0.2053990550),
-//    solution.ArbitrageDetector.CurrencyPricePair("CHSB", "EUR", 0.2017539914),
-//    solution.ArbitrageDetector.CurrencyPricePair("DAI", "BTC", 0.0000429088),
-//    solution.ArbitrageDetector.CurrencyPricePair("DAI", "CHSB", 4.9320433378),
-//    solution.ArbitrageDetector.CurrencyPricePair("DAI", "DAI", 1.0),
-//    solution.ArbitrageDetector.CurrencyPricePair("DAI", "EUR", 0.9907652193),
-//    solution.ArbitrageDetector.CurrencyPricePair("EUR", "BTC", 0.0000435564),
-//    solution.ArbitrageDetector.CurrencyPricePair("EUR", "CHSB", 5.0427577751),
-//    solution.ArbitrageDetector.CurrencyPricePair("EUR", "DAI", 1.0211378960),
-//    solution.ArbitrageDetector.CurrencyPricePair("EUR", "EUR", 1.0),
-//  )
-  val graph = solution.ArbitrageDetector.Graph(currencyPricePairs)
-  val result = at.detectArbitrage(graph)
+  val graph = Solution.Graph.apply(currencyPricePairs)
+  val result = arbitrageDetector.detectArbitrage(graph)
+  arbitrageDetector.printArbitrageResult(result, graph)
 
-  if (result.isEmpty) {
-    println("No arbitrage could be found.")
-  } else {
-    result.foreach { r =>
-      val initialCurrency = r.head
-      val resultingAmount = r.slice(1, r.size).foldLeft((1.0, initialCurrency)) { (acc, curr) =>
-        val sum = acc._1
-        val prev = acc._2
-        val loggedRate = graph.graph(prev).find(_.to == curr).getOrElse(throw new Exception(s"Could not find exchange between $prev and $curr"))
-        val rate = scala.math.exp(-loggedRate.weight)
-        (sum * rate, curr)
-      }._1
-      println(s"Arbitrage found: $initialCurrency")
-      println(s"Path: ${r.mkString(" -> ")}")
-      println(s"When following this path, 1 $initialCurrency would be turned into $resultingAmount $initialCurrency \n\n")
-    }
-  }
 }

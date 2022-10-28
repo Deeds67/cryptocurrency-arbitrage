@@ -7,7 +7,6 @@ import sttp.client3.upicklejson._
 import upickle.default._
 import sttp.client3.{SimpleHttpClient, basicRequest}
 
-
 /* Borger, feel free to let your imagination shine but do not change this snippet :> */
 
 
@@ -33,9 +32,6 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
         })
       }
     }
-
-    final case class CurrencyPricePair(from: Currency, to: Currency, rate: Double)
-
     object Graph {
       def apply(currencyPricePairs: List[CurrencyPricePair]): Graph = {
         currencyPricePairs.foldLeft(Graph(Map[Currency, List[Edge]]())) { (acc, pair) =>
@@ -48,6 +44,8 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
         }
       }
     }
+
+    final case class CurrencyPricePair(from: Currency, to: Currency, rate: Double)
 
     final case class BellmanFordOutput(distance: Map[Currency, Double], predecessor: Map[Currency, Option[Currency]]) {
       def relaxEdge(edge: Edge): BellmanFordOutput = {
@@ -134,7 +132,7 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
               val rate = scala.math.exp(-loggedRate.weight)
               (sum * rate, curr)
             }._1
-            println(s"Arbitrage found: $initialCurrency")
+            println(s"Arbitrage found with starting currency: $initialCurrency")
             println(s"Path: ${r.mkString(" -> ")}")
             println(s"When following this path, 1 $initialCurrency would be turned into $resultingAmount $initialCurrency \n\n")
           }
@@ -144,7 +142,7 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
   }
 
   val client = SimpleHttpClient()
-  val encodedUrl = uri"${url}"
+  val encodedUrl = uri"$url"
   val request = basicRequest.get(encodedUrl).response(asJson[Map[String,String]])
   val responseBody: Map[String, String] = client.send(request).body.right.get
 
@@ -157,9 +155,9 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
   }.toList
 
   val arbitrageDetector = new Solution.ArbitrageDetectorImpl()
+  val graph = Solution.Graph(currencyPricePairs)
 
-  val graph = Solution.Graph.apply(currencyPricePairs)
-  val result = arbitrageDetector.detectArbitrage(graph)
-  arbitrageDetector.printArbitrageResult(result, graph)
+  val arbitrageResult = arbitrageDetector.detectArbitrage(graph)
+  arbitrageDetector.printArbitrageResult(arbitrageResult, graph)
 
 }

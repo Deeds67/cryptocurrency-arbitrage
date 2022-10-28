@@ -4,7 +4,6 @@ import $ivy.`com.softwaremill.sttp.client3::core:3.8.3`
 import $ivy.`com.softwaremill.sttp.client3::upickle::3.8.3`
 import sttp.client3.quick._
 import sttp.client3.upicklejson._
-import upickle.default._
 import sttp.client3.{SimpleHttpClient, basicRequest}
 
 /* Borger, feel free to let your imagination shine but do not change this snippet :> */
@@ -17,6 +16,39 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
   }
 
   /* Add your stuff, be Awesome! */
+
+  /*
+    SwissBorg tech challenge solution by Pierre Marais:
+
+    Algorithm complexity analysis:
+
+      The Bellman-Ford algorithm was used to solve this problem. It is used to find a shortest path in a directed graph.
+      Since the Bellman-Ford algorithm works using addition, but exchange rates are multiplicative, we can use this mathematical formula
+      to make our exchanges additive:
+
+      `log (x * z * y) = log(x) + log(y) + log(z)`
+      Therefore, if `log(x) + log(y) + log(z) > 0`, arbitrage is possible.
+
+      Since Bellman-Ford allows us to find *negative* weight cycles, we can simply negate the weights of the edges.
+      Therefore, if `-log(x) + (-log(y)) + (-log(z)) < 0`, arbitrage is possible.
+
+      The time complexity is O(V * N), where V is the number of vertexes (currencies) and E is the number of edges (currency price pairs).
+
+      The standard Bellman-Ford algorithm does not return negative weight cycles (it simply identifies that they are present),
+      so we have an additional linear effort to iterate through the predecessors to find the negative weight cycle.
+      This does not affect the overall time complexity, as it is linear.
+
+      Side note: Double was used, which could lead to minor inconsistencies due to floating point rounding errors. This can be avoided
+      by using BigDecimal or representing the dollars/cents as integers.
+
+    A note about CHSB and its key features:
+
+       - It's an ERC-20 token based on the Ethereum platform.
+       - It has a circulating supply of 1 billion tokens.
+       - By "Proof of meritocracy", all token holders can vote on the direction which the network will be developed.
+       - There exists a CHSB Buyback program, which periodically burns some of the circulating supply.
+   */
+
   object Solution {
     type Currency = String
 

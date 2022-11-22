@@ -48,3 +48,9 @@ This does not affect the overall time complexity, as it is linear.
 
 Side note: Double was used, which could lead to minor inconsistencies due to floating point rounding errors. This can be avoided
 by using BigDecimal or representing the dollars/cents as integers.
+
+## How to run
+
+```
+scala-cli .
+```

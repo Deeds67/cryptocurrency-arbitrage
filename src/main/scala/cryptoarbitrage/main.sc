@@ -9,7 +9,7 @@ import sttp.client3.{SimpleHttpClient, basicRequest}
 /* Borger, feel free to let your imagination shine but do not change this snippet :> */
 
 
-@main def main(args: String*): Unit = {
+@main def run(args: String*): Unit = {
   val url: String = args.length match {
     case 0 => "https://api.swissborg.io/v1/challenge/rates"
     case _ => args(0)

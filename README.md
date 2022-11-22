@@ -50,7 +50,7 @@ Side note: Double was used, which could lead to minor inconsistencies due to flo
 by using BigDecimal or representing the dollars/cents as integers.
 
 ## How to run
-
+Using [scala-cli](https://scala-cli.virtuslab.org/install/)
 ```
 scala-cli .
 ```
